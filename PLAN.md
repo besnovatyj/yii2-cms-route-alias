@@ -38,6 +38,9 @@
   - `Bootstrap` (L2) — инвалидация тега `route_aliases` на AR-событиях `RouteAlias`.
   - Бэкенд: `controllers\backend\DefaultController` (CRUD) + формы + вьюхи; каскад модуль→путь→slug
     реализован встроенными JSON-данными + минимальным inline-скриптом (без доп. ассетов).
+  - Интеграция с ClearManager (опциональная, по конвенции `params.endpoints.clear`):
+    `services\AliasCacheClearService` + `controllers\backend\ClearController` — сброс кэша карт
+    маршрутизации (тег `route_aliases`) из основного модуля очистки. Жёсткой зависимости нет.
 - Пилот-провайдер: `Besnovatyj\Page\Module implements AliasTargetProvider` (цели `Page/page/view`,
   `Page/page/group` + списки slug). Аналог пилота Blog для канала URL-правил.
 
@@ -64,16 +67,10 @@ catch-all ядра остаётся последним. Правило возв�
 - [x] 12. Конфиги модуля: `Module.php`, `config/{config,common,dependencies,options,adminMenu}.php`.
 - [x] 13. Пилот: `Page\Module` реализует `AliasTargetProvider` (+ метод списка slug в read-repo).
 - [x] 14. Самопроверка: php -l синтаксис, сверка неймспейсов/зависимостей, README-примечание по установке.
+- [x] 15. Интеграция с ClearManager: `params.endpoints.clear` + `ClearController` + `AliasCacheClearService`.
 
 ## Не в этой итерации (phase 2)
 
 - Явные 301-редиректы «длинный канонический → короткий» (нормализация), поле `is_permanent`.
 - Вложенные/множественные параметры цели сложнее одного slug.
 - Импорт/экспорт правил, аудит.
-
-# Моя (Besnovatyj) заметка:
-
-1) Модуль "app/vendor/besnovatyj/yii2-cms-clear-manager" предоставляет функционал сбора данных по очистке доступной у других модулей.
-Как пример "app/vendor/besnovatyj/yii2-cms-blog/src/config/config.php:18" и "\Besnovatyj\Blog\controllers\backend\ClearController"
-Неплохо бы и здесь реализовать подобное, чтобы можно было сбрасывать кеш из основного модуля очистки при желании 
-2) Профиоировать приложение до и после включения модуля

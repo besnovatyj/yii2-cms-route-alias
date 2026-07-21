@@ -16,5 +16,18 @@ return [
         'reservedPrefixes' => [
             'admin', 'backend', 'assets', 'static', 'csp-report',
         ],
+
+        // Интеграция с модулем очистки (ClearManager): сброс кэша карт маршрутизации алиасов.
+        // Читается EndpointCollectorService, если ClearManager установлен; иначе параметры инертны
+        // (жёсткой зависимости нет). См. controllers/backend/ClearController.
+        'endpoints' => [
+            'clear' => [
+                'maps' => [
+                    'rowTitle' => 'Кэш карт маршрутизации URL-алиасов',
+                    'getData' => '/RouteAlias/backend/clear/get-data',
+                    'clear' => '/RouteAlias/backend/clear/clear-data',
+                ],
+            ],
+        ],
     ],
 ];
