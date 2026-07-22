@@ -15,11 +15,11 @@ return [
         '_meta' => [
             'placements' => [
                 [
-                    'location' => 'left-sidebar',
-                    'group' => 'Routing',
-                    'groupIcon' => 'bi bi-signpost-2',
+                    'location' => 'right-sidebar',
+                    'group' => 'Service',
+                    'groupIcon' => 'bi bi-sliders',
                     'priority' => 100,
-                    'groupPriority' => 80,
+                    'groupPriority' => 100,
                 ],
             ],
         ],
