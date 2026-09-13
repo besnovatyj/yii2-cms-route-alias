@@ -10,15 +10,15 @@ namespace Besnovatyj\RouteAlias\services;
 
 use Besnovatyj\Contracts\routing\AliasTarget;
 use Besnovatyj\Contracts\routing\AliasTargetProvider;
+use Besnovatyj\Kernel\module\ModuleFinder;
 use Besnovatyj\RouteAlias\entities\RouteAlias;
-use Yii;
 
 /**
  * Находит модули, объявляющие алиасуемые цели ({@see AliasTargetProvider}), и агрегирует их для админки.
  *
- * Discovery — через перебор зарегистрированных модулей приложения и проверку `instanceof`. Работает
- * только на бэкенде (экран создания/редактирования алиаса), не на горячем пути маршрутизации, поэтому
- * инстанцирование модулей здесь допустимо. Связанность нулевая: провайдеры не знают об этом модуле.
+ * Discovery — через перебор зарегистрированных модулей приложения по контракту ({@see ModuleFinder}):
+ * инстанцируются только модули-провайдеры. Работает только на бэкенде (экран создания/редактирования
+ * алиаса), не на горячем пути маршрутизации. Связанность нулевая: провайдеры не знают об этом модуле.
  */
 final class AliasTargetRegistry
 {
@@ -36,15 +36,7 @@ final class AliasTargetRegistry
             return $this->providers;
         }
 
-        $providers = [];
-        foreach (array_keys(Yii::$app->getModules()) as $id) {
-            $module = Yii::$app->getModule((string)$id);
-            if ($module instanceof AliasTargetProvider) {
-                $providers[(string)$id] = $module;
-            }
-        }
-
-        return $this->providers = $providers;
+        return $this->providers = ModuleFinder::implementing(AliasTargetProvider::class);
     }
 
     /**
