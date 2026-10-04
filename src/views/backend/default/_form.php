@@ -72,10 +72,14 @@ $dataId = 'route-alias-form';
             </div>
         </div>
 
+        <?= $form->field($model, 'isHome')->checkbox(['data-role' => 'home'])
+            ->hint('Цель открывается по адресу «/». Главная может быть только одна.') ?>
+
         <?= $form->field($model, 'path')->textInput([
             'maxlength' => true,
             'data-role' => 'path',
             'placeholder' => 'about-the-manufacturer',
+            'disabled' => $model->isHome,
         ])->hint('Короткий адрес без домена и без ведущего слэша. Пусто — подставится выбранный slug.') ?>
 
         <?= $form->field($model, 'status')->checkbox() ?>
@@ -99,6 +103,9 @@ $js = <<<'JS'
     var routeSel = root.querySelector('[data-role="route"]');
     var slugSel = root.querySelector('[data-role="slug"]');
     var pathInput = root.querySelector('[data-role="path"]');
+    var homeBox = root.querySelector('[data-role="home"]');
+
+    function isHome() { return !!(homeBox && homeBox.checked); }
 
     function fill(select, items, selected, prompt) {
         select.innerHTML = '';
@@ -139,10 +146,21 @@ $js = <<<'JS'
     moduleSel.addEventListener('change', function () { onModuleChange('', ''); });
     routeSel.addEventListener('change', function () { onRouteChange(''); });
     slugSel.addEventListener('change', function () {
-        if (pathInput && pathInput.value.trim() === '' && slugSel.value) {
+        if (pathInput && !isHome() && pathInput.value.trim() === '' && slugSel.value) {
             pathInput.value = slugSel.value;
         }
     });
+    // Главная: путь хранится пустым (сервер обнуляет его сам), поле выключено и не отправляется.
+    if (homeBox && pathInput) {
+        homeBox.addEventListener('change', function () {
+            pathInput.disabled = isHome();
+            if (isHome()) {
+                pathInput.value = '';
+            } else if (pathInput.value.trim() === '' && slugSel.value) {
+                pathInput.value = slugSel.value;
+            }
+        });
+    }
 
     // Инициализация из текущих значений (создание/редактирование).
     var curModule = root.getAttribute('data-current-module') || '';

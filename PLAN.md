@@ -34,8 +34,11 @@
   - `services\AliasTargetRegistry` — находит модули-провайдеры (`instanceof AliasTargetProvider`).
   - `services\manage\RouteAliasManageService` — create/edit/remove (форма → сущность, slug → params).
   - `urls\RouteAliasUrlRule` (`UrlRuleInterface`) — parse (path→route+params) и create (route+params→path),
-    на основе карт из `AliasMapProvider`. Подключается как `['class' => …]` в `frontendUrlManager.rules`.
-  - `Bootstrap` (L2) — инвалидация тега `route_aliases` на AR-событиях `RouteAlias`.
+    на основе карт из `AliasMapProvider`. Ставится первым в `frontendUrlManager` из `Bootstrap`
+    (см. «Порядок правил»). Пустой путь `''` — алиас главной (`/`).
+  - `Bootstrap` (L2) — инвалидация тега `route_aliases` на AR-событиях `RouteAlias`; правило первым
+    в `frontendUrlManager`; во фронтенде — подписка `listeners\CanonicalAliasRedirect`.
+  - `listeners\CanonicalAliasRedirect` — 301 на алиас, если страница открыта по другому адресу.
   - Бэкенд: `controllers\backend\DefaultController` (CRUD) + формы + вьюхи; каскад модуль→путь→slug
     реализован встроенными JSON-данными + минимальным inline-скриптом (без доп. ассетов).
   - Интеграция с ClearManager (опциональная, по конвенции `params.endpoints.clear`):
@@ -46,9 +49,20 @@
 
 ## Порядок правил
 
-Вклад модуля в `frontendUrlManager.rules` мёржится ПЕРЕД корневыми правилами (`RecursiveMerge`),
-catch-all ядра остаётся последним. Правило возвращает `false` на не-алиасных путях, поэтому не затеняет
-другие правила; для алиасных выигрывает у catch-all.
+Правило должно стоять ПЕРВЫМ: `UrlManager::createUrl()` берёт первое сработавшее правило. Вклад через
+`frontendUrlManager.rules` не годится — modman сортирует пакеты группы по имени (`MergePlanCompiler`),
+и `page/<slug>` из `yii2-cms-page` оказывался раньше: разбор `/price` работал, а ссылки, canonical и
+sitemap получали `/page/price` (дубль адреса). Поэтому `Bootstrap` оборачивает определение
+`frontendUrlManager` в ленивое замыкание и добавляет правило штатным `addRules($rules, false)`.
+Правило возвращает `false` на не-алиасных путях/роутах, поэтому не затеняет другие правила.
+
+## Дубли адресов и канонизация
+
+Страница с алиасом остаётся доступной и по другим адресам: правило модуля (`/page/home`), разбор по
+умолчанию (`/Page/page/view?slug=home`), другой регистр/хвостовой слэш (`/PRICE`, `/price/`).
+- canonical/`og:url` (`Url::canonical()`), sitemap, меню, ссылки — генерация через менеджер, получают алиас;
+- `CanonicalAliasRedirect` (фронтенд, GET/HEAD, `Application::EVENT_BEFORE_ACTION`) отвечает 301 на алиас,
+  если путь запроса не совпадает с путём алиаса; оставшиеся query-параметры переносятся.
 
 ## Шаги реализации
 
@@ -68,9 +82,11 @@ catch-all ядра остаётся последним. Правило возв�
 - [x] 13. Пилот: `Page\Module` реализует `AliasTargetProvider` (+ метод списка slug в read-repo).
 - [x] 14. Самопроверка: php -l синтаксис, сверка неймспейсов/зависимостей, README-примечание по установке.
 - [x] 15. Интеграция с ClearManager: `params.endpoints.clear` + `ClearController` + `AliasCacheClearService`.
+- [x] 16. Главная страница (пустой путь, флажок `isHome` в форме); правило первым из `Bootstrap`;
+  301 «длинный → короткий» (`CanonicalAliasRedirect`).
 
 ## Не в этой итерации (phase 2)
 
-- Явные 301-редиректы «длинный канонический → короткий» (нормализация), поле `is_permanent`.
+- Поле `is_permanent` (выбор 301/302 на алиас) — сейчас редирект всегда 301.
 - Вложенные/множественные параметры цели сложнее одного slug.
 - Импорт/экспорт правил, аудит.

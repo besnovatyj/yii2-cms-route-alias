@@ -17,11 +17,13 @@ use yii\web\UrlRuleInterface;
  * Двунаправленное правило коротких URL-алиасов на основе ТОЧНОГО сопоставления.
  *
  * Никаких пользовательских регекспов: и разбор, и генерация — array-лукапы по картам из
- * {@see AliasMapProvider} (кэш APCu). Подключается как `['class' => self::class]` в
- * `components.frontendUrlManager.rules` (группа `common`, гейт modman). Вклад мёржится ПЕРЕД корневыми
- * правилами, поэтому для алиасных путей выигрывает у catch-all ядра; на не-алиасных путях возвращает
- * `false` и НЕ затеняет другие правила. При выключении модуля правило исчезает из сборки — маршрутизация
- * возвращается к обычной (`Url::to` снова генерит `/Module/controller/action?param=...`).
+ * {@see AliasMapProvider} (кэш APCu). Ставится ПЕРВЫМ в `frontendUrlManager` из
+ * {@see \Besnovatyj\RouteAlias\Bootstrap} (а не через `rules` конфига): иначе правила модулей-провайдеров
+ * (`page/<slug>`), вмёрженные раньше по алфавиту пакетов, перехватывают генерацию URL, и алиас
+ * не появляется ни в ссылках, ни в canonical. На не-алиасных путях/роутах возвращает `false` и НЕ
+ * затеняет другие правила. При выключении модуля правило исчезает — маршрутизация возвращается к обычной.
+ *
+ * Пустой путь (`''`) — алиас главной страницы: разбирается для `/`, генерируется в `/`.
  *
  * DI: контейнер автовайрит {@see AliasMapProvider} в конструктор (правило создаётся через
  * `Yii::createObject`). Требует `frontendUrlManager.cache = false` — объект-правило с сервисом не
@@ -40,14 +42,13 @@ final class RouteAliasUrlRule extends BaseObject implements UrlRuleInterface
     /**
      * Разбор запроса: короткий путь → внутренний роут с параметрами.
      *
+     * Пустой путь (`/`) ищется в карте как обычный ключ `''` — алиас главной, если он заведён.
+     *
      * @return array{0:string,1:array}|false
      */
     public function parseRequest($manager, $request): array|false
     {
         $path = RouteAlias::normalizePath($request->pathInfo);
-        if ($path === '') {
-            return false;
-        }
 
         $forward = $this->maps->maps()['forward'];
         if (!isset($forward[$path])) {
@@ -97,13 +98,20 @@ final class RouteAliasUrlRule extends BaseObject implements UrlRuleInterface
     /**
      * Все пары ключ→значение из $subset присутствуют в $params с равными (строково) значениями.
      *
+     * Нескалярное значение (`?slug[]=x` из query-строки при канонизирующем редиректе) — не совпадение,
+     * а не «Array to string conversion».
+     *
      * @param array<string,mixed> $subset
      * @param array<string,mixed> $params
      */
     private function isSubset(array $subset, array $params): bool
     {
         foreach ($subset as $key => $value) {
-            if (!array_key_exists($key, $params) || (string)$params[$key] !== (string)$value) {
+            if (
+                !array_key_exists($key, $params)
+                || !is_scalar($params[$key])
+                || (string)$params[$key] !== (string)$value
+            ) {
                 return false;
             }
         }

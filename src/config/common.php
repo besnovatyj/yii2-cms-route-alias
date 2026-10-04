@@ -7,19 +7,17 @@
 declare(strict_types=1);
 
 use Besnovatyj\RouteAlias\Module;
-use Besnovatyj\RouteAlias\urls\RouteAliasUrlRule;
 
 /**
  * Yii2-конфиг модуля для движка yiisoft/config (группа `common` — общий для всех приложений).
  *
  * Объявляется через `extra.config-plugin`, собирается modman в merge-plan и мёржится в рантайме.
- * Регистрирует модуль, вкладывает класс-правило в `frontendUrlManager` и bootstrap (инвалидация кэша).
+ * Регистрирует модуль и bootstrap.
  *
- * URL-правило — вклад в именованный компонент `frontendUrlManager` (как у Blog): группа `common`
- * мёржится во все приложения, `RecursiveMerge` конкатенирует `rules` — вклад встаёт ПЕРЕД правилами
- * root, а catch-all ядра остаётся последним. Правило гейтится modman: деактивация модуля убирает его
- * из сборки, и маршрутизация возвращается к обычной (прозрачный fallback). Правило возвращает `false`
- * на не-алиасных путях, поэтому не затеняет остальные правила.
+ * URL-правило намеренно НЕ вкладывается в `components.frontendUrlManager.rules`: вклады мёржатся по
+ * алфавиту пакетов, и правила модулей-провайдеров (`page/<slug>`) оказывались раньше и перехватывали
+ * генерацию URL. Правило ставится первым из Bootstrap (см. Bootstrap::prependAliasRule()). Гейт modman
+ * сохраняется: деактивация модуля убирает Bootstrap, и маршрутизация возвращается к обычной.
  */
 return [
     'modules' => [
@@ -28,13 +26,6 @@ return [
             Module::moduleConfig(),
         ),
     ],
-    'components' => [
-        'frontendUrlManager' => [
-            'rules' => [
-                ['class' => RouteAliasUrlRule::class],
-            ],
-        ],
-    ],
-    // L2-bootstrap: сброс кэша карт при изменении алиасов (см. Bootstrap).
+    // L2-bootstrap: сброс кэша карт, правило алиасов первым в frontendUrlManager, 301 на алиас (см. Bootstrap).
     'bootstrap' => array_values(Module::bootstrapClasses()),
 ];

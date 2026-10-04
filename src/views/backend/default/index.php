@@ -37,7 +37,8 @@ $this->params['breadcrumbs'][] = $this->title;
                 [
                     'attribute' => 'path',
                     'value' => static function (RouteAlias $model) {
-                        return Html::a(Html::encode('/' . $model->path), ['view', 'id' => $model->id]);
+                        $label = '/' . $model->path . ($model->path === '' ? ' (главная)' : '');
+                        return Html::a(Html::encode($label), ['view', 'id' => $model->id]);
                     },
                     'format' => 'raw',
                 ],

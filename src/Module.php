@@ -18,7 +18,7 @@ use Besnovatyj\Kernel\module\CmsModule;
 /**
  * Модуль управляемых из админки коротких URL-алиасов фронтенда.
  *
- * Регистрирует вклад в `frontendUrlManager` (см. config/common.php) и бэкенд CRUD. Опционален:
+ * Ставит своё правило первым в `frontendUrlManager` (см. Bootstrap) и даёт бэкенд CRUD. Опционален:
  * при выключении правило исчезает из сборки и маршрутизация возвращается к обычной. См. PLAN.md.
  */
 class Module extends CmsModule implements

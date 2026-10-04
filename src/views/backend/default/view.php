@@ -33,7 +33,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 'id',
                 [
                     'attribute' => 'path',
-                    'value' => '/' . $alias->path,
+                    'value' => '/' . $alias->path . ($alias->path === '' ? ' (главная)' : ''),
                 ],
                 'route',
                 [

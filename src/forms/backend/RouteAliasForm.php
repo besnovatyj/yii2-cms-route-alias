@@ -20,6 +20,9 @@ use Yii;
  * Оперирует связкой «модуль → путь (роут) → slug»; хранится роут + params. Поле `module` — вспомогательное
  * (для каскада в UI), не сохраняется. Валидаторы, которым нужны сервисы, резолвят их из DI-контейнера,
  * чтобы форму можно было создавать обычным `new` (совместимо с CRUD-контроллером).
+ *
+ * Флажок `isHome` — алиас главной страницы: хранится как пустой `path` (UNIQUE в БД гарантирует, что
+ * главная одна). Поле `path` при нём не заполняется и не валидируется на формат.
  */
 class RouteAliasForm extends BaseForm
 {
@@ -28,6 +31,7 @@ class RouteAliasForm extends BaseForm
     public string $route = '';
     public ?string $slug = '';
     public string $path = '';
+    public bool $isHome = false;
     public int $status = RouteAlias::STATUS_ACTIVE;
 
     public function __construct(?RouteAlias $alias = null, $config = [])
@@ -36,6 +40,7 @@ class RouteAliasForm extends BaseForm
             $this->id = $alias->id;
             $this->route = $alias->route;
             $this->path = $alias->path;
+            $this->isHome = $alias->path === '';
             $this->status = (int)$alias->status;
             $params = $alias->getParams();
             $this->slug = $params !== [] ? (string)reset($params) : '';
@@ -46,15 +51,19 @@ class RouteAliasForm extends BaseForm
     public function rules(): array
     {
         return [
-            [['route', 'path'], 'required'],
+            ['route', 'required'],
+            ['path', 'required', 'when' => fn (): bool => !$this->isHome,
+                'whenClient' => 'function () { var h = document.querySelector(\'#route-alias-form [data-role="home"]\'); return !(h && h.checked); }'],
             [['route', 'path', 'slug', 'module'], 'string', 'max' => 255],
+            ['isHome', 'boolean'],
             ['status', 'in', 'range' => [RouteAlias::STATUS_INACTIVE, RouteAlias::STATUS_ACTIVE]],
             ['path', 'match', 'pattern' => '#^[a-z0-9]+(?:[-/][a-z0-9]+)*$#',
                 'message' => 'Путь: строчные латинские буквы/цифры, разделители «-» и «/», без ведущего/хвостового слэша.'],
             ['route', 'validateRoute'],
             ['slug', 'validateSlug'],
             ['path', 'validatePathReserved'],
-            ['path', 'validatePathUnique'],
+            // skipOnEmpty=false: пустой путь главной тоже проверяется на занятость (иначе — IntegrityException по UNIQUE).
+            ['path', 'validatePathUnique', 'skipOnEmpty' => false],
         ];
     }
 
@@ -65,8 +74,20 @@ class RouteAliasForm extends BaseForm
             'route'  => 'Базовый путь (цель)',
             'slug'   => 'Slug',
             'path'   => 'Короткий URL',
+            'isHome' => 'Главная страница',
             'status' => 'Активен',
         ];
+    }
+
+    /**
+     * Алиас главной всегда хранится с пустым путём, что бы ни пришло в поле `path`.
+     */
+    public function beforeValidate(): bool
+    {
+        if ($this->isHome) {
+            $this->path = '';
+        }
+        return parent::beforeValidate();
     }
 
     /**
@@ -125,10 +146,17 @@ class RouteAliasForm extends BaseForm
      */
     public function validatePathUnique(string $attribute): void
     {
+        if ($this->path === '' && !$this->isHome) {
+            return; // пустой путь без флажка уже отвергнут required
+        }
         /** @var RouteAliasRepository $repo */
         $repo = Yii::$container->get(RouteAliasRepository::class);
         if ($repo->existsByPath($this->path, $this->id)) {
-            $this->addError($attribute, 'Такой короткий URL уже занят.');
+            if ($this->isHome) {
+                $this->addError('isHome', 'Главная страница уже назначена другому алиасу.');
+            } else {
+                $this->addError($attribute, 'Такой короткий URL уже занят.');
+            }
         }
     }
 
